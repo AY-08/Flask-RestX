@@ -4,35 +4,32 @@ class Role(db.Model):
     __tablename__ = 'Role'
     role_id = db.Column(db.Integer, primary_key = True)
     role_name = db.Column(db.String)
-    users = db.relationship("User", back_populates = 'roles')
+    user = db.relationship("User", back_populates = 'role')
 
 
 class User(db.Model):
-    __tablename__ = 'User' 
+    __tablename__ = 'User'
     user_id = db.Column(db.Integer, primary_key = True)
-    user_name = db.Column(db.String, nullable = False, unique = True)
-    password = db.Column(db.String, nullable = False)
-    user_role = db.Column(db.String, db.ForeignKey('Role.role_id'))
-    roles = db.relationship("Role", back_populates = 'users')
-    carts = db.relationship("Cart", back_populates = 'cart_users')
-    products = db.relationship("Product", back_populates = 'product_users')
-
+    user_name = db.Column(db.String)
+    password = db.Column(db.String)
+    user_role = db.Column(db.Integer, db.ForeignKey('Role.role_id'))
+    role = db.relationship('Role', back_populates = 'user')
+    cart_user = db.relationship('Cart', back_populates = 'user_cart')
+    product_user = db.relationship('Product', back_populates = 'user_product')
 
 class Cart(db.Model):
     __tablename__ = 'Cart'
     cart_id = db.Column(db.Integer, primary_key = True)
     total_amount = db.Column(db.Float)
     user_id = db.Column(db.Integer, db.ForeignKey('User.user_id'))
-    cart_users = db.relationship("User", back_populates = 'carts')
-    
-
-    
+    user_cart = db.relationship('User', back_populates = 'cart_user')
+    cartproduct_cart = db.relationship('CartProduct', back_populates = 'cart_cartproduct')
 
 class Category(db.Model):
     __tablename__ = 'Category'
     category_id = db.Column(db.Integer, primary_key = True)
-    category_name = db.Column(db.Integer)
-    products_cat = db.relationship('Product', back_populates = 'category')
+    category_name = db.Column(db.String)
+    product_category = db.relationship('Product', back_populates = 'category_product')
 
 
 class Product(db.Model):
@@ -40,7 +37,19 @@ class Product(db.Model):
     product_id = db.Column(db.Integer, primary_key = True)
     product_name = db.Column(db.String)
     price = db.Column(db.Float)
-    seller_id = db.Column(db.Integer, db.ForeignKey('User.user_id'))  
-    product_users = db.relationship('User', back_populates = 'products')  
+    seller_id = db.Column(db.Integer, db.ForeignKey('User.user_id'))
+    user_product = db.relationship('User', back_populates = 'product_user')
     category_id = db.Column(db.Integer, db.ForeignKey('Category.category_id'))
-    category = db.relationship('Category', back_populates = 'products_cat')
+    category_product = db.relationship('Category', back_populates = 'product_category')
+    cartproduct_product = db.relationship('CartProduct', back_populates = 'product_cartproduct')
+
+class CartProduct(db.Model):
+    __tablename__ = 'CartProduct'
+    cp_id = db.Column(db.Integer, primary_key = True)
+    cart_id = db.Column(db.Integer, db.ForeignKey('Cart.cart_id'))
+    cart_cartproduct = db.relationship('Cart', back_populates = 'cartproduct_cart')
+    product_id = db.Column(db.Integer, db.ForeignKey('Product.product_id'))
+    product_cartproduct = db.relationship('Product', back_populates = 'cartproduct_product')
+    quantity = db.Column(db.Integer)
+
+    
