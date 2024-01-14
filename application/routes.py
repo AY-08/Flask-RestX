@@ -1,90 +1,112 @@
-from application import db, app
+from application import app, db
 from flask_restx import Resource, Api, fields
-from flask import Flask, request, jsonify
-from application.models import User
-from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
+from application.models import Role, User
+from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
 
 authorization = {
-    "jsonWebToken": {
+    "jsonwebtoken": {
         "name": "Authorization",
         "in": "header",
         "type": "apiKey"
     }
-
 }
-# # authenticate and response with status code and  JWT
 
-# # decorator for verifying the JWT
+api = Api(app, decsription= "Apis", authorizations = authorization)
 
-api = Api(app, description="Rest Apis", authorizations=authorization)
-login_model = api.model("Login", {
+role_model = api.model('Role',{
+      "role_id": fields.Integer,
+      "role_name": fields.String
+})
+
+user_model = api.model('User', {
+    "user_id": fields.Integer,
+    "user_name": fields.String,
+     "password": fields.String,
+     "role": fields.Nested(role_model)
+
+})
+
+login_model = api.model('Login', {
     "username": fields.String,
     "password": fields.String
 })
-# def token_required(f):
-#     @wraps(f)
-#     def decorated(*args, **kwargs):
-#         token = None
-#         # jwt is passed in the request header
-#         if 'x-access-token' in request.headers:
-#             token = request.headers['x-access-token']
-#         # return 401 if token is not passed
-#         if not token:
-#             return jsonify({'message': 'Token is missing !!'}), 401
 
-#         # try:
-#         #     # decoding the payload to fetch the stored details
-#         #     data = jwt.decode(token, app.config['SECRET_KEY'])
-#         #     current_user = User.query.filter_by(user_id=data['id']).first()
+add_user_model = api.model('Add_User', {
+    "user_name": fields.String,
+    "password": fields.String,
+    "user_role": fields.Integer
 
-#         # except:
-#         #     return jsonify({
-#         #         'message': 'Token is invalid !!'
-#         #     }), 401
-#         # returns the current logged in users contex to the routes
-#         # return f(current_user, *args, **kwargs)
-#         return token
+})
+@api.route('/users')
+class Users(Resource):
+    @api.marshal_list_with(user_model)
+    def get(self):
+        query = db.session.query(User).all()
 
-#     return decorated
+        return query, 200
 
 
+# login
 @api.route('/login')
-class LoginView(Resource):
+class Login(Resource):
     @api.expect(login_model)
     def post(self):
-        name = api.payload["username"]
+        username = api.payload["username"]
         password = api.payload["password"]
-        print(name)
-        print(password)
-        query = db.session.query(User).filter(
-            User.user_name == name, User.password == password).all()
-        print(query)
-        if not query:
-            # print("Wrong Username or password")
-            return {"message": "Invalid credentials"}, 401
+        credentials =  db.session.query(User).filter(username == username and password == password)
+        if credentials:
+            access_token = create_access_token(identity = username)
+
+            return {"message": access_token}, 200
         else:
-            access_token = create_access_token(identity=name)
-            tokenAuth = {'access_token': access_token}
-
-        #  tokenAuth.update({"Authorization": "Bearer "+access_token})
-
-        return tokenAuth, 200
-
-
-# Protected resource that requires Bearer Token authentication
+            return {"message": "Invalid Credentials"}, 401
+            
 
 
 @api.route('/protected')
-class ProtectedView(Resource):
+class Protected(Resource):
     @jwt_required()
-    @api.doc(security="jsonWebToken")
+    @api.doc(security ="jsonwebtoken")
     def get(self):
         current_user = get_jwt_identity()
-        print("current user", current_user)
-        return {'message': f"Hello, {current_user}"}
-        # if current_user:
-        #     data = {
-        #         'message': f"Hello, {current_user}"}
-        #     return data, 200
-        # else:
-        #     return {"message": "Missing Authorization Header"}, 401
+        if current_user == 'bob':
+            return {"messsage":f"Welcome, {current_user}"}, 200
+
+        else:
+            return {"message":"Login with admin id"}, 401
+
+    @api.expect(add_user_model)
+    @api.marshal_list_with(user_model)
+    @jwt_required()
+    @api.doc(security= "jsonwebtoken")
+    def post(self):
+        print(api.payload)
+        currentuser = get_jwt_identity()
+        if currentuser == 'bob':
+            user = User(user_name = api.payload["user_name"], password = api.payload["password"], user_role = api.payload["user_role"])
+            db.session.add(user)
+            db.session.commit()
+
+            return user, 200 
+
+        else: 
+            return {"message": "Login from bob id to add user"},401
+
+
+@api.route('/delete/<int:keyword>')  
+class delete(Resource):      
+    @jwt_required()
+    @api.doc(security="jsonwebtoken")
+    def delete(self, keyword):
+        currentuser = get_jwt_identity()
+        if currentuser == 'bob':
+            user = db.session.query(User).filter(User.user_id == keyword).one_or_none()
+            print(user)
+            db.session.delete(user)
+            db.session.commit()
+            return {"message": "user deleted!!!"}
+
+
+        
+        else: 
+            {"message": "Login using bob id to delete user"}
